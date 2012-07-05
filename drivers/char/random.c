@@ -254,6 +254,7 @@
 #include <linux/cryptohash.h>
 #include <linux/fips.h>
 #include <linux/ptrace.h>
+#include <linux/kmemcheck.h>
 
 #ifdef CONFIG_GENERIC_HARDIRQS
 # include <linux/irq.h>
@@ -838,7 +839,7 @@ static void xfer_secondary_pool(struct entropy_store *r, size_t nbytes)
 
 		bytes = extract_entropy(r->pull, u.tmp, bytes,
 					random_read_wakeup_thresh / 8, rsvd);
-		mix_pool_bytes(r, tmp, bytes, NULL);
+		mix_pool_bytes(r, u.tmp, bytes, NULL);
 		credit_entropy_bits(r, bytes*8);
 	}
 	kmemcheck_mark_initialized(&u.hwrand, sizeof(u.hwrand));
