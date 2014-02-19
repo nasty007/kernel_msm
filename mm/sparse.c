@@ -487,7 +487,6 @@ void __init sparse_init(void)
 	int size2;
 	struct page **map_map;
 #endif
-
 	/*
 	 * map is using big page (aka 2M in x86 64 bit)
 	 * usemap is less one page (aka 24 bytes)
