@@ -25,6 +25,7 @@
 #define SOUND_CONTROL_MAJOR_VERSION	3
 #define SOUND_CONTROL_MINOR_VERSION	2
 #define SOUND_CONTROL_MINOR_VERSION	4
+#define SOUND_CONTROL_MINOR_VERSION	5
 
 
 #define REG_SZ	21
@@ -33,6 +34,7 @@ extern struct snd_soc_codec *fauxsound_codec_ptr;
 extern int wcd9xxx_hw_revision;
 
 static int snd_ctrl_locked = 0;
+static int snd_rec_ctrl_locked = 0;
 
 unsigned int tabla_read(struct snd_soc_codec *codec, unsigned int reg);
 int tabla_write(struct snd_soc_codec *codec, unsigned int reg,
@@ -136,7 +138,7 @@ int snd_hax_reg_access(unsigned int reg)
 		case TABLA_A_RX_HPH_R_GAIN:
 		case TABLA_A_RX_HPH_L_STATUS:
 		case TABLA_A_RX_HPH_R_STATUS:
-			if (snd_ctrl_locked > 1)
+			if (snd_rec_ctrl_locked > 1)
 				ret = 0;
 			break;
 		case TABLA_A_CDC_RX1_VOL_CTL_B2_CTL:
@@ -377,10 +379,46 @@ static ssize_t sound_control_locked_store(struct kobject *kobj,
 	return count;
 }
 
-static ssize_t sound_control_locked_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+static ssize_t sound_control_locked_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
 {
         return sprintf(buf, "%d\n", snd_ctrl_locked);
 }
+
+static ssize_t sound_control_rec_locked_store(struct kobject *kobj,
+                struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int inp;
+
+	sscanf(buf, "%d", &inp);
+
+	snd_rec_ctrl_locked = inp;
+
+	return count;
+}
+
+static ssize_t sound_control_rec_locked_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", snd_ctrl_locked);
+}
+
+static struct kobj_attribute sound_reg_sel_attribute =
+	__ATTR(sound_reg_sel,
+		0222,
+		NULL,
+		sound_reg_select_store);
+
+static struct kobj_attribute sound_reg_read_attribute =
+	__ATTR(sound_reg_read,
+		0444,
+		sound_reg_read_show,
+		NULL);
+
+static struct kobj_attribute sound_reg_write_attribute =
+	__ATTR(sound_reg_write,
+		0222,
+		NULL,
+		sound_reg_write_store);
 
 static struct kobj_attribute cam_mic_gain_attribute =
 	__ATTR(gpl_cam_mic_gain,
@@ -418,6 +456,12 @@ static struct kobj_attribute sound_control_locked_attribute =
 		sound_control_locked_show,
 		sound_control_locked_store);
 
+static struct kobj_attribute sound_control_rec_locked_attribute =
+	__ATTR(gpl_sound_control_rec_locked,
+		0666,
+		sound_control_rec_locked_show,
+		sound_control_rec_locked_store);
+
 static struct kobj_attribute sound_control_version_attribute =
 	__ATTR(gpl_sound_control_version,
 		0444,
@@ -436,6 +480,7 @@ static struct attribute *sound_control_attrs[] =
 		&headphone_gain_attribute.attr,
 		&headphone_pa_gain_attribute.attr,
 		&sound_control_locked_attribute.attr,
+		&sound_control_rec_locked_attribute.attr,
 		&sound_reg_sel_attribute.attr,
 		&sound_reg_read_attribute.attr,
 		&sound_reg_write_attribute.attr,
