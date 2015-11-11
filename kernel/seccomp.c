@@ -341,8 +341,6 @@ static inline void seccomp_sync_threads(void)
 			 * a thread that sets it up, enters seccomp,
 			 * then dies.
 			 */
-			if (task_no_new_privs(caller))
-				task_set_no_new_privs(thread);
 
 			seccomp_assign_mode(thread, SECCOMP_MODE_FILTER);
 		}
