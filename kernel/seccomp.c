@@ -227,8 +227,6 @@ static u32 seccomp_run_filters(int syscall)
 
 static inline bool seccomp_may_assign_mode(unsigned long seccomp_mode)
 {
-	BUG_ON(!spin_is_locked(&current->sighand->siglock));
-
 	if (current->seccomp.mode && current->seccomp.mode != seccomp_mode)
 		return false;
 
@@ -238,15 +236,8 @@ static inline bool seccomp_may_assign_mode(unsigned long seccomp_mode)
 static inline void seccomp_assign_mode(struct task_struct *task,
 				       unsigned long seccomp_mode)
 {
-	BUG_ON(!spin_is_locked(&task->sighand->siglock));
-
-	task->seccomp.mode = seccomp_mode;
-	/*
-	 * Make sure TIF_SECCOMP cannot be set before the mode (and
-	 * filter) is set.
-	 */
-	smp_mb();
-	set_tsk_thread_flag(task, TIF_SECCOMP);
+	current->seccomp.mode = seccomp_mode;
+	set_tsk_thread_flag(current, TIF_SECCOMP);
 }
 
 #ifdef CONFIG_SECCOMP_FILTER
@@ -453,8 +444,6 @@ out:
  * @flags:  flags to change filter behavior
  * @filter: seccomp filter to add to the current process
  *
- * Caller must be holding current->sighand->siglock lock.
- *
  * Returns 0 on success, -ve on error.
  */
 static long seccomp_attach_filter(unsigned int flags,
@@ -462,8 +451,6 @@ static long seccomp_attach_filter(unsigned int flags,
 {
 	unsigned long total_insns;
 	struct seccomp_filter *walker;
-
-	BUG_ON(!spin_is_locked(&current->sighand->siglock));
 
 	/* Validate resulting filter length. */
 	total_insns = filter->len;
@@ -668,8 +655,6 @@ static long seccomp_set_mode_strict(void)
 	const unsigned long seccomp_mode = SECCOMP_MODE_STRICT;
 	long ret = -EINVAL;
 
-	spin_lock_irq(&current->sighand->siglock);
-
 	if (!seccomp_may_assign_mode(seccomp_mode))
 		goto out;
 
@@ -680,7 +665,6 @@ static long seccomp_set_mode_strict(void)
 	ret = 0;
 
 out:
-	spin_unlock_irq(&current->sighand->siglock);
 
 	return ret;
 }
@@ -707,23 +691,13 @@ static long seccomp_set_mode_filter(unsigned int flags,
 	long ret = -EINVAL;
 
 	/* Validate flags. */
-	if (flags & ~SECCOMP_FILTER_FLAG_MASK)
-		return -EINVAL;
+	if (flags != 0)
+		goto out;
 
 	/* Prepare the new filter before holding any locks. */
 	prepared = seccomp_prepare_user_filter(filter);
 	if (IS_ERR(prepared))
 		return PTR_ERR(prepared);
-
-	/*
-	 * Make sure we cannot change seccomp or nnp state via TSYNC
-	 * while another thread is in the middle of calling exec.
-	 */
-	if (flags & SECCOMP_FILTER_FLAG_TSYNC &&
-	    mutex_lock_killable(&current->signal->cred_guard_mutex))
-		goto out_free;
-
-	spin_lock_irq(&current->sighand->siglock);
 
 	if (!seccomp_may_assign_mode(seccomp_mode))
 		goto out;
@@ -736,10 +710,6 @@ static long seccomp_set_mode_filter(unsigned int flags,
 
 	seccomp_assign_mode(current, seccomp_mode);
 out:
-	spin_unlock_irq(&current->sighand->siglock);
-	if (flags & SECCOMP_FILTER_FLAG_TSYNC)
-		mutex_unlock(&current->signal->cred_guard_mutex);
-out_free:
 	seccomp_filter_free(prepared);
 	return ret;
 }
