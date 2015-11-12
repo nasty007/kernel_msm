@@ -1249,7 +1249,6 @@ static int msm_otg_usbdev_notify(struct notifier_block *self,
 			 * OTG PET: A-device must end session within
 			 * 10 sec after PET enumeration.
 			 */
-			if (udev->quirks & USB_QUIRK_OTG_PET)
 				msm_otg_start_timer(motg, TA_TST_MAINT,
 						A_TST_MAINT);
 		}
